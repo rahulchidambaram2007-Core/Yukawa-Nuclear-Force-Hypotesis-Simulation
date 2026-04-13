@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Yukawa Nuclear Force — Interactive Simulation</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;400;700;900&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<style>
+:root{--bg:#080c14;--bg-card:rgba(13,18,32,0.85);--fg:#e8e2d8;--muted:#7a8294;--accent:#f0a030;--proton:#f0a030;--neutron:#20c0a0;--pion-plus:#ff6b6b;--pion-minus:#c470e8;--pion-zero:#8898b0;--border:rgba(240,160,48,0.12);--attractive:#30d890;--repulsive:#ff4060}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--fg);overflow-x:hidden;line-height:1.7}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(240,160,48,0.022)1px,transparent 1px),linear-gradient(90deg,rgba(240,160,48,0.022)1px,transparent 1px);background-size:50px 50px;pointer-events:none;z-index:0}
+body::after{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 15% 30%,rgba(240,160,48,0.04)0%,transparent 50%),radial-gradient(ellipse at 85% 70%,rgba(32,192,160,0.03)0%,transparent 50%),radial-gradient(ellipse at 50% 90%,rgba(255,107,107,0.02)0%,transparent 40%);pointer-events:none;z-index:0}
+section,header,footer{position:relative;z-index:1}
+.mono{font-family:'IBM Plex Mono',monospace}
+canvas{display:block;border-radius:12px}
+.sim-canvas{background:rgba(6,10,18,0.95);border:1px solid var(--border);width:100%;cursor:grab}
+.sim-canvas:active{cursor:grabbing}
+.card{background:var(--bg-card);border:1px solid var(--border);border-radius:16px;backdrop-filter:blur(12px)}
+.eq-card{background:linear-gradient(135deg,rgba(240,160,48,0.06),rgba(32,192,160,0.04));border:1px solid var(--border);border-radius:16px;padding:2rem 2.5rem;backdrop-filter:blur(12px);animation:eq-glow 4s ease-in-out infinite}
+@keyframes eq-glow{0%,100%{box-shadow:0 0 20px rgba(240,160,48,0.05)}50%{box-shadow:0 0 40px rgba(240,160,48,0.12)}}
+input[type="range"]{-webkit-appearance:none;width:100%;height:4px;border-radius:2px;background:rgba(240,160,48,0.2);outline:none}
+input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent);cursor:pointer;box-shadow:0 0 8px rgba(240,160,48,0.4)}
+input[type="range"]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:var(--accent);cursor:pointer;border:none}
+.btn{padding:8px 18px;border-radius:8px;border:1px solid var(--border);background:rgba(240,160,48,0.08);color:var(--fg);cursor:pointer;font-family:'Outfit',sans-serif;font-size:.85rem;transition:all .2s}
+.btn:hover{background:rgba(240,160,48,0.18);border-color:rgba(240,160,48,0.4)}
+.btn.active{background:rgba(240,160,48,0.22);border-color:var(--accent);color:var(--accent)}
+.dot{width:10px;height:10px;border-radius:50%;display:inline-block;flex-shrink:0}
+.reveal{opacity:0;transform:translateY(30px);transition:opacity .8s,transform .8s}
+.reveal.visible{opacity:1;transform:translateY(0)}
+.katex{color:var(--fg)!important}
+.badge{display:inline-flex;align-items:center;gap:6px;padding:4px 14px;border-radius:20px;font-size:.72rem;font-weight:600;letter-spacing:.04em}
+@media(prefers-reduced-motion:reduce){.reveal{transition:none;opacity:1;transform:none}*{animation:none!important;transition-duration:0s!important}}
+@media(max-width:768px){.eq-card{padding:1.2rem 1.4rem}}
+</style>
+</head>
+<body>
+
+<!-- ===== HEADER ===== -->
+<header class="pt-16 pb-8 text-center px-4">
+    <p class="text-xs tracking-[0.35em] uppercase mb-5" style="color:var(--accent)">Nuclear Physics &middot; 1935</p>
+    <h1 class="text-5xl md:text-7xl font-black leading-[1.05] mb-6">The Yukawa<br>Hypothesis</h1>
+    <p class="text-base md:text-lg max-w-2xl mx-auto" style="color:var(--muted)">
+        How Hideki Yukawa predicted the existence of mesons to explain the strong nuclear force — a prediction confirmed 12 years later with the discovery of the pion.
+    </p>
+</header>
+
+<!-- ===== EQUATION ===== -->
+<section class="py-8 px-4 reveal">
+    <div class="max-w-3xl mx-auto">
+        <div class="eq-card text-center">
+            <p class="text-xs tracking-[0.25em] uppercase mb-4" style="color:var(--accent)">The Yukawa Potential</p>
+            <div id="eq-yukawa" class="text-xl md:text-2xl mb-5"></div>
+            <p class="text-sm leading-relaxed" style="color:var(--muted)">
+                where <span class="mono" style="color:var(--fg)">g</span> is the coupling constant,
+                <span class="mono" style="color:var(--fg)">r</span> is the internucleon distance, and
+                <span class="mono" style="color:var(--fg)">&lambda; = &hbar; / m<sub>&pi;</sub>c</span>
+                is the Compton wavelength of the mediating meson — setting the force's range to roughly
+                <span class="mono" style="color:var(--accent)">1.4 fm</span>.
+            </p>
+        </div>
+    </div>
+</section>
+
+<!-- ===== PION EXCHANGE SIMULATION ===== -->
+<section class="py-12 px-4 reveal">
+    <div class="max-w-6xl mx-auto">
+        <div class="flex items-center gap-3 mb-2">
+            <i class="fa-solid fa-atom" style="color:var(--accent)"></i>
+            <h2 class="text-2xl md:text-3xl font-bold">Virtual Pion Exchange</h2>
+        </div>
+        <p class="text-sm mb-6" style="color:var(--muted)">
+            Drag the nucleons to change their separation. Virtual pions are exchanged more frequently at shorter distances, producing a stronger attractive force.
+        </p>
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-5">
+            <div class="lg:col-span-3">
+                <canvas id="exchangeCanvas" class="sim-canvas" height="420"></canvas>
+            </div>
+            <div class="card p-5 flex flex-col gap-4">
+                <p class="text-xs tracking-wider uppercase" style="color:var(--accent)">Controls</p>
+                <div>
+                    <label class="text-sm mb-2 block">Nucleon Pair</label>
+                    <div class="flex gap-2 flex-wrap">
+                        <button class="btn active" data-pair="pn">p — n</button>
+                        <button class="btn" data-pair="pp">p — p</button>
+                        <button class="btn" data-pair="nn">n — n</button>
+                    </div>
+                </div>
+                <div class="border-t pt-3" style="border-color:var(--border)">
+                    <label class="text-sm mb-1 block">Distance</label>
+                    <div class="mono text-lg" id="dist-readout" style="color:var(--accent)">—</div>
+                </div>
+                <div>
+                    <label class="text-sm mb-1 block">Force Magnitude</label>
+                    <div class="mono text-lg" id="force-readout" style="color:var(--attractive)">—</div>
+                </div>
+                <div>
+                    <label class="text-sm mb-1 block">Potential Energy</label>
+                    <div class="mono text-lg" id="pot-readout">—</div>
+                </div>
+                <div class="mt-auto pt-3 border-t" style="border-color:var(--border)">
+                    <p class="text-xs uppercase tracking-wider mb-2" style="color:var(--muted)">Pion Legend</p>
+                    <div class="flex flex-col gap-1.5 text-sm">
+                        <span class="flex items-center gap-2"><span class="dot" style="background:var(--pion-plus)"></span> &pi;+ (p &rarr; n)</span>
+                        <span class="flex items-center gap-2"><span class="dot" style="background:var(--pion-minus)"></span> &pi;&minus; (n &rarr; p)</span>
+                        <span class="flex items-center gap-2"><span class="dot" style="background:var(--pion-zero)"></span> &pi;0 (same type)</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ===== POTENTIAL CURVE EXPLORER ===== -->
+<section class="py-12 px-4 reveal">
+    <div class="max-w-6xl mx-auto">
+        <div class="flex items-center gap-3 mb-2">
+            <i class="fa-solid fa-chart-line" style="color:var(--accent)"></i>
+            <h2 class="text-2xl md:text-3xl font-bold">Potential Curve Explorer</h2>
+        </div>
+        <p class="text-sm mb-6" style="color:var(--muted)">
+            Compare the Yukawa potential with the Coulomb potential. Adjust the meson mass to see how it controls the range of the nuclear force.
+        </p>
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-5">
+            <div class="lg:col-span-3">
+                <canvas id="potentialCanvas" class="sim-canvas" height="420"></canvas>
+            </div>
+            <div class="card p-5 flex flex-col gap-4">
+                <p class="text-xs tracking-wider uppercase" style="color:var(--accent)">Parameters</p>
+                <div>
+                    <label class="text-sm mb-1 flex justify-between"><span>Meson Mass (m<sub>&pi;</sub>)</span><span class="mono" id="mass-val" style="color:var(--accent)">140 MeV</span></label>
+                    <input type="range" id="mass-slider" min="40" max="500" value="140" step="5">
+                </div>
+                <div>
+                    <label class="text-sm mb-1 flex justify-between"><span>Coupling (g<sup>2</sup>)</span><span class="mono" id="coup-val" style="color:var(--accent)">1.00</span></label>
+                    <input type="range" id="coup-slider" min="10" max="300" value="100" step="5">
+                </div>
+                <div class="border-t pt-3" style="border-color:var(--border)">
+                    <label class="text-sm mb-1 block">Derived Range (&lambda;)</label>
+                    <div class="mono text-lg" id="range-val" style="color:var(--neutron)">—</div>
+                </div>
+                <div>
+                    <p class="text-xs uppercase tracking-wider mb-2" style="color:var(--muted)">Show Curves</p>
+                    <label class="flex items-center gap-2 text-sm cursor-pointer mb-1"><input type="checkbox" id="show-yukawa" checked> <span class="dot" style="background:var(--accent)"></span> Yukawa (nuclear)</label>
+                    <label class="flex items-center gap-2 text-sm cursor-pointer mb-1"><input type="checkbox" id="show-coulomb" checked> <span class="dot" style="background:var(--repulsive)"></span> Coulomb (EM)</label>
+                    <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" id="show-net" checked> <span class="dot" style="background:var(--neutron)"></span> Net potential</label>
+                </div>
+                <div id="hover-info" class="mt-auto pt-3 border-t text-sm mono" style="border-color:var(--border);color:var(--muted)">
+                    Hover over the plot to inspect values
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ===== NUCLEAR BINDING SIMULATION ===== -->
+<section class="py-12 px-4 reveal">
+    <div class="max-w-6xl mx-auto">
+        <div class="flex items-center gap-3 mb-2">
+            <i class="fa-solid fa-circle-nodes" style="color:var(--accent)"></i>
+            <h2 class="text-2xl md:text-3xl font-bold">Nuclear Binding Simulation</h2>
+        </div>
+        <p class="text-sm mb-4" style="color:var(--muted)">
+            Watch nucleons self-organize into a bound nucleus through Yukawa attraction, short-range repulsion, and Coulomb forces between protons. Click the canvas to add nucleons.
+        </p>
+        <div class="flex flex-wrap gap-2 mb-4">
+            <button class="btn active" id="addProtonBtn"><span class="dot mr-1" style="background:var(--proton)"></span> Add Proton</button>
+            <button class="btn" id="addNeutronBtn"><span class="dot mr-1" style="background:var(--neutron)"></span> Add Neutron</button>
+            <button class="btn" id="resetBindingBtn"><i class="fa-solid fa-rotate-right mr-1"></i> Reset</button>
+            <button class="btn" id="toggleCoulombBtn"><i class="fa-solid fa-bolt mr-1"></i> Coulomb: ON</button>
+        </div>
+        <canvas id="bindingCanvas" class="sim-canvas" height="500"></canvas>
+        <div class="flex flex-wrap gap-4 mt-4 text-sm" style="color:var(--muted)">
+            <span>Protons: <span class="mono" id="prot-count" style="color:var(--proton)">0</span></span>
+            <span>Neutrons: <span class="mono" id="neut-count" style="color:var(--neutron)">0</span></span>
+            <span>Total Energy: <span class="mono" id="total-energy" style="color:var(--accent)">0</span></span>
+            <span>Bound: <span class="mono" id="bound-status" style="color:var(--attractive)">—</span></span>
+        </div>
+    </div>
+</section>
+
+<!-- ===== HISTORICAL CONTEXT ===== -->
+<section class="py-16 px-4 reveal">
+    <div class="max-w-4xl mx-auto">
+        <div class="flex items-center gap-3 mb-6">
+            <i class="fa-solid fa-landmark" style="color:var(--accent)"></i>
+            <h2 class="text-2xl md:text-3xl font-bold">Historical Significance</h2>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <div class="card p-6">
+                <div class="badge mb-3" style="background:rgba(240,160,48,0.1);color:var(--accent)">November 1935</div>
+                <h3 class="font-bold text-lg mb-2">The Prediction</h3>
+                <p class="text-sm" style="color:var(--muted)">
+                    Yukawa proposed that the strong nuclear force is mediated by an undiscovered particle with mass ~200&times; the electron mass, deriving the force range from the uncertainty principle &Delta;E&Delta;t &asymp; &hbar;.
+                </p>
+            </div>
+            <div class="card p-6">
+                <div class="badge mb-3" style="background:rgba(255,107,107,0.1);color:var(--pion-plus)">1937</div>
+                <h3 class="font-bold text-lg mb-2">False Alarm</h3>
+                <p class="text-sm" style="color:var(--muted)">
+                    The muon (&mu;) was discovered in cosmic rays with the right mass, but it didn't interact strongly with matter — it was a "wrong particle." The true meson remained elusive.
+                </p>
+            </div>
+            <div class="card p-6">
+                <div class="badge mb-3" style="background:rgba(32,192,160,0.1);color:var(--neutron)">1947</div>
+                <h3 class="font-bold text-lg mb-2">Confirmation</h3>
+                <p class="text-sm" style="color:var(--muted)">
+                    Cecil Powell's group discovered the pion (&pi;) in photographic emulsions exposed to cosmic rays. Its mass (~270 m<sub>e</sub>) and strong interactions perfectly matched Yukawa's prediction. He received the 1950 Nobel Prize.
+                </p>
+            </div>
+        </div>
+        <div class="card p-6 mt-5">
+            <h3 class="font-bold text-lg mb-3">Why It Matters</h3>
+            <p class="text-sm leading-relaxed" style="color:var(--muted)">
+                Yukawa's work was the first successful prediction of a new fundamental particle from theoretical reasoning alone. It established the concept of <strong style="color:var(--fg)">force-mediating virtual particles</strong> — later extended to photons (EM), W/Z bosons (weak force), and gluons (strong force) in the Standard Model. The key insight — that a force's range is inversely proportional to the mediator's mass — remains foundational to quantum field theory.
+            </p>
+        </div>
+    </div>
+</section>
+
+<footer class="py-10 text-center text-xs" style="color:var(--muted)">
+    Interactive simulation of the Yukawa Nuclear Force Hypothesis &middot; Built for educational purposes
+</footer>
+
+<script>
+/* ================================================================
+   UTILITY FUNCTIONS
+   ================================================================ */
+const PI2 = Math.PI * 2;
+function lerp(a, b, t) { return a + (b - a) * t; }
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+function rand(lo, hi) { return lo + Math.random() * (hi - lo); }
+
+/* Resize a canvas to match its CSS display size × devicePixelRatio */
+function fitCanvas(canvas) {
+    const rect = canvas.getBoundingClientRect();
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return { w: rect.width, h: rect.height, ctx };
+}
+
+/* ================================================================
+   KATEX EQUATIONS
+   ================================================================ */
+document.addEventListener('DOMContentLoaded', () => {
+    try {
+        katex.render(
+            'V(r) = -\\dfrac{g^{2}}{4\\pi}\\,\\dfrac{e^{-\\,r/\\lambda}}{r}',
+            document.getElementById('eq-yukawa'), { displayMode: true }
+        );
+    } catch(e) { document.getElementById('eq-yukawa').textContent = 'V(r) = -g²/(4π) · e^(-r/λ) / r'; }
+});
+
+/* ================================================================
+   SCROLL REVEAL
+   ================================================================ */
+const revealObs = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.12 });
+document.querySelectorAll('.reveal').forEach(el => revealObs.observe(el));
+
+/* ================================================================
+   1. PION EXCHANGE SIMULATION
+   ================================================================ */
+(function() {
+    const canvas = document.getElementById('exchangeCanvas');
+    let W, H, ctx;
+    const NUC_R = 28;
+    const LAMBDA_PX = 100; // range in pixels
+    const G2 = 8000; // coupling strength (pixel units)
+
+    let pairType = 'pn'; // 'pn', 'pp', 'nn'
+    let nucleons = [
+        { x: 0, y: 0, type: 'proton' },
+        { x: 0, y: 0, type: 'neutron' }
+    ];
+    let virtualPions = [];
+    let dragging = null;
+    let dragOff = { x: 0, y: 0 };
+    let lastSpawn = 0;
+
+    function init() {
+        const s = fitCanvas(canvas);
+        W = s.w; H = s.h; ctx = s.ctx;
+        nucleons[0].x = W * 0.35; nucleons[0].y = H * 0.5;
+        nucleons[1].x = W * 0.65; nucleons[1].y = H * 0.5;
+        updatePairType();
+    }
+
+    function updatePairType() {
+        nucleons[0].type = pairType[0] === 'p' ? 'proton' : 'neutron';
+        nucleons[1].type = pairType[1] === 'p' ? 'proton' : 'neutron';
+        virtualPions = [];
+    }
+
+    /* Pion types based on pair */
+    function pionTypes() {
+        if (pairType === 'pn') return ['plus', 'minus']; // p→n: π+, n→p: π-
+        return ['zero']; // pp or nn: π0
+    }
+    function pionColor(type) {
+        return type === 'plus' ? '#ff6b6b' : type === 'minus' ? '#c470e8' : '#8898b0';
+    }
+    function pionLabel(type) {
+        return type === 'plus' ? 'π⁺' : type === 'minus' ? 'π⁻' : 'π⁰';
+    }
+
+    /* Spawn virtual pions — rate proportional to force */
+    function spawnPions(now) {
+        const d = dist(nucleons[0], nucleons[1]);
+        if (d < 1) return;
+        const force = G2 * Math.exp(-d / LAMBDA_PX) * (1 / (d * d) + 1 / (d * LAMBDA_PX));
+        const interval = Math.max(40, 600 - force * 0.06);
+        if (now - lastSpawn < interval) return;
+        lastSpawn = now;
+
+        const types = pionTypes();
+        const t = types[Math.floor(Math.random() * types.length)];
+        const fromIdx = Math.random() < 0.5 ? 0 : 1;
+        const toIdx = 1 - fromIdx;
+        const from = nucleons[fromIdx];
+        const to = nucleons[toIdx];
+        const angle = Math.atan2(to.y - from.y, to.x - from.x);
+        const perpAngle = angle + (Math.random() < 0.5 ? 1 : -1) * (0.3 + Math.random() * 0.6);
+        const curveLen = d * (0.3 + Math.random() * 0.4);
+        const cx = from.x + Math.cos(perpAngle) * curveLen;
+        const cy = from.y + Math.sin(perpAngle) * curveLen;
+
+        virtualPions.push({
+            fromX: from.x, fromY: from.y,
+            toX: to.x, toY: to.y,
+            cx, cy,
+            progress: 0,
+            speed: 0.012 + Math.random() * 0.01,
+            type: t,
+            alpha: 1
+        });
+    }
+
+    function drawNucleon(n) {
+        const col = n.type === 'proton' ? '#f0a030' : '#20c0a0';
+        const label = n.type === 'proton' ? 'p' : 'n';
+        // Glow
+        const grad = ctx.createRadialGradient(n.x, n.y, NUC_R * 0.3, n.x, n.y, NUC_R * 2.2);
+        grad.addColorStop(0, col + '30');
+        grad.addColorStop(1, col + '00');
+        ctx.fillStyle = grad;
+        ctx.beginPath(); ctx.arc(n.x, n.y, NUC_R * 2.2, 0, PI2); ctx.fill();
+        // Body
+        const bg = ctx.createRadialGradient(n.x - 6, n.y - 6, 2, n.x, n.y, NUC_R);
+        bg.addColorStop(0, col);
+        bg.addColorStop(1, col + 'aa');
+        ctx.fillStyle = bg;
+        ctx.beginPath(); ctx.arc(n.x, n.y, NUC_R, 0, PI2); ctx.fill();
+        ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.stroke();
+        // Label
+        ctx.fillStyle = '#080c14';
+        ctx.font = 'bold 18px Outfit';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(label, n.x, n.y);
+    }
+
+    function drawForceArrow() {
+        const d = dist(nucleons[0], nucleons[1]);
+        if (d < 5) return;
+        const force = G2 * Math.exp(-d / LAMBDA_PX) * (1 / (d * d) + 1 / (d * LAMBDA_PX));
+        const maxLen = 60;
+        const len = Math.min(maxLen, force * 0.05);
+        if (len < 2) return;
+
+        const mx = (nucleons[0].x + nucleons[1].x) / 2;
+        const my = (nucleons[0].y + nucleons[1].y) / 2;
+        const angle = Math.atan2(nucleons[1].y - nucleons[0].y, nucleons[1].x - nucleons[0].x);
+
+        // Arrow on nucleon 0 pointing toward nucleon 1
+        drawArrow(nucleons[0].x + Math.cos(angle) * (NUC_R + 8), nucleons[0].y + Math.sin(angle) * (NUC_R + 8), angle, len, '#30d890');
+        // Arrow on nucleon 1 pointing toward nucleon 0
+        drawArrow(nucleons[1].x - Math.cos(angle) * (NUC_R + 8), nucleons[1].y - Math.sin(angle) * (NUC_R + 8), angle + Math.PI, len, '#30d890');
+    }
+
+    function drawArrow(x, y, angle, len, color) {
+        const ex = x + Math.cos(angle) * len;
+        const ey = y + Math.sin(angle) * len;
+        ctx.strokeStyle = color; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(ex, ey); ctx.stroke();
+        const headLen = 8;
+        ctx.beginPath();
+        ctx.moveTo(ex, ey);
+        ctx.lineTo(ex - Math.cos(angle - 0.4) * headLen, ey - Math.sin(angle - 0.4) * headLen);
+        ctx.moveTo(ex, ey);
+        ctx.lineTo(ex - Math.cos(angle + 0.4) * headLen, ey - Math.sin(angle + 0.4) * headLen);
+        ctx.stroke();
+    }
+
+    function drawRangeCircle() {
+        const n = nucleons[0];
+        ctx.setLineDash([4, 6]);
+        ctx.strokeStyle = 'rgba(240,160,48,0.15)';
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.arc(n.x, n.y, LAMBDA_PX, 0, PI2); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = 'rgba(240,160,48,0.3)';
+        ctx.font = '11px IBM Plex Mono';
+        ctx.textAlign = 'center';
+        ctx.fillText('λ (range)', n.x, n.y - LAMBDA_PX - 6);
+    }
+
+    function bezierPoint(t, p0x, p0y, cx, cy, p1x, p1y) {
+        const u = 1 - t;
+        return {
+            x: u * u * p0x + 2 * u * t * cx + t * t * p1x,
+            y: u * u * p0y + 2 * u * t * cy + t * t * p1y
+        };
+    }
+
+    function draw(now) {
+        ctx.clearRect(0, 0, W, H);
+
+        // Background field lines (subtle)
+        const d = dist(nucleons[0], nucleons[1]);
+        if (d > 1) {
+            const fieldAlpha = Math.min(0.08, 0.02 + G2 * Math.exp(-d / LAMBDA_PX) / (d * d) * 0.0003);
+            ctx.strokeStyle = `rgba(240,160,48,${fieldAlpha})`;
+            ctx.lineWidth = 0.5;
+            const mx = (nucleons[0].x + nucleons[1].x) / 2;
+            const my = (nucleons[0].y + nucleons[1].y) / 2;
+            for (let i = -3; i <= 3; i++) {
+                const off = i * 18;
+                const angle = Math.atan2(nucleons[1].y - nucleons[0].y, nucleons[1].x - nucleons[0].x) + Math.PI / 2;
+                ctx.beginPath();
+                ctx.moveTo(nucleons[0].x + Math.cos(angle) * off, nucleons[0].y + Math.sin(angle) * off);
+                ctx.quadraticCurveTo(mx + Math.cos(angle) * off * 1.5, my + Math.sin(angle) * off * 1.5,
+                    nucleons[1].x + Math.cos(angle) * off, nucleons[1].y + Math.sin(angle) * off);
+                ctx.stroke();
+            }
+        }
+
+        drawRangeCircle();
+        drawForceArrow();
+
+        // Update and draw virtual pions
+        spawnPions(now);
+        virtualPions = virtualPions.filter(p => {
+            p.progress += p.speed;
+            if (p.progress >= 1) return false;
+            const pt = bezierPoint(p.progress, p.fromX, p.fromY, p.cx, p.cy, p.toX, p.toY);
+            const col = pionColor(p.type);
+            // Trail
+            const trailSteps = 5;
+            for (let i = trailSteps; i >= 0; i--) {
+                const tp = Math.max(0, p.progress - i * 0.02);
+                const tpt = bezierPoint(tp, p.fromX, p.fromY, p.cx, p.cy, p.toX, p.toY);
+                const a = (1 - i / trailSteps) * 0.4 * (1 - p.progress);
+                ctx.fillStyle = col + Math.round(a * 255).toString(16).padStart(2, '0');
+                ctx.beginPath(); ctx.arc(tpt.x, tpt.y, 3 - i * 0.3, 0, PI2); ctx.fill();
+            }
+            // Main dot
+            const fadeOut = p.progress > 0.8 ? (1 - p.progress) / 0.2 : 1;
+            const fadeIn = p.progress < 0.15 ? p.progress / 0.15 : 1;
+            ctx.globalAlpha = fadeOut * fadeIn;
+            const glow = ctx.createRadialGradient(pt.x, pt.y, 0, pt.x, pt.y, 10);
+            glow.addColorStop(0, col);
+            glow.addColorStop(1, col + '00');
+            ctx.fillStyle = glow;
+            ctx.beginPath(); ctx.arc(pt.x, pt.y, 10, 0, PI2); ctx.fill();
+            ctx.fillStyle = col;
+            ctx.beginPath(); ctx.arc(pt.x, pt.y, 4, 0, PI2); ctx.fill();
+            ctx.globalAlpha = 1;
+            return true;
+        });
+
+        drawNucleon(nucleons[0]);
+        drawNucleon(nucleons[1]);
+
+        // Update readouts
+        const distFm = (d / LAMBDA_PX * 1.41).toFixed(2);
+        const forceVal = G2 * Math.exp(-d / LAMBDA_PX) * (1 / (d * d) + 1 / (d * LAMBDA_PX));
+        const potVal = -G2 * Math.exp(-d / LAMBDA_PX) / Math.max(1, d);
+        document.getElementById('dist-readout').textContent = distFm + ' fm';
+        document.getElementById('force-readout').textContent = forceVal.toFixed(1) + ' a.u.';
+        document.getElementById('pot-readout').textContent = potVal.toFixed(1) + ' a.u.';
+    }
+
+    function animate(now) {
+        draw(now);
+        requestAnimationFrame(animate);
+    }
+
+    // Interaction
+    function getPos(e) {
+        const r = canvas.getBoundingClientRect();
+        const t = e.touches ? e.touches[0] : e;
+        return { x: t.clientX - r.left, y: t.clientY - r.top };
+    }
+    function hitNucleon(pos) {
+        for (let i = 0; i < 2; i++) {
+            if (Math.hypot(pos.x - nucleons[i].x, pos.y - nucleons[i].y) < NUC_R + 10) return i;
+        }
+        return -1;
+    }
+
+    canvas.addEventListener('mousedown', e => { const p = getPos(e); const i = hitNucleon(p); if (i >= 0) { dragging = i; dragOff = { x: p.x - nucleons[i].x, y: p.y - nucleons[i].y }; } });
+    canvas.addEventListener('mousemove', e => { if (dragging !== null) { const p = getPos(e); nucleons[dragging].x = clamp(p.x - dragOff.x, NUC_R, W - NUC_R); nucleons[dragging].y = clamp(p.y - dragOff.y, NUC_R, H - NUC_R); } });
+    canvas.addEventListener('mouseup', () => { dragging = null; });
+    canvas.addEventListener('mouseleave', () => { dragging = null; });
+    canvas.addEventListener('touchstart', e => { e.preventDefault(); const p = getPos(e); const i = hitNucleon(p); if (i >= 0) { dragging = i; dragOff = { x: p.x - nucleons[i].x, y: p.y - nucleons[i].y }; } }, { passive: false });
+    canvas.addEventListener('touchmove', e => { e.preventDefault(); if (dragging !== null) { const p = getPos(e); nucleons[dragging].x = clamp(p.x - dragOff.x, NUC_R, W - NUC_R); nucleons[dragging].y = clamp(p.y - dragOff.y, NUC_R, H - NUC_R); } }, { passive: false });
+    canvas.addEventListener('touchend', () => { dragging = null; });
+
+    // Pair type buttons
+    document.querySelectorAll('[data-pair]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('[data-pair]').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            pairType = btn.dataset.pair;
+            updatePairType();
+        });
+    });
+
+    window.addEventListener('resize', () => { const old = { x0: nucleons[0].x / W, y0: nucleons[0].y / H, x1: nucleons[1].x / W, y1: nucleons[1].y / H }; const s = fitCanvas(canvas); W = s.w; H = s.h; ctx = s.ctx; nucleons[0].x = old.x0 * W; nucleons[0].y = old.y0 * H; nucleons[1].x = old.x1 * W; nucleons[1].y = old.y1 * H; });
+    init();
+    requestAnimationFrame(animate);
+})();
+
+/* ================================================================
+   2. POTENTIAL CURVE EXPLORER
+   ================================================================ */
+(function() {
+    const canvas = document.getElementById('potentialCanvas');
+    let W, H, ctx;
+    const pad = { top: 35, right: 25, bottom: 50, left: 65 };
+
+    let mesonMass = 140; // MeV/c²
+    let g2 = 1.0;
+    let hoverR = -1;
+
+    // Physical constants for display
+    const hbarc = 197.3; // MeV·fm
+    const e2 = 1.44; // MeV·fm (Coulomb constant × e²)
+
+    function getLambda() { return hbarc / mesonMass; } // fm
+
+    function init() {
+        const s = fitCanvas(canvas);
+        W = s.w; H = s.h; ctx = s.ctx;
+    }
+
+    function mapX(r, rMax) { return pad.left + (r / rMax) * (W - pad.left - pad.right); }
+    function mapY(V, Vmin, Vmax) { return pad.top + (Vmax - V) / (Vmax - Vmin) * (H - pad.top - pad.bottom); }
+
+    function draw() {
+        ctx.clearRect(0, 0, W, H);
+        const lambda = getLambda();
+        const rMax = Math.max(lambda * 6, 4);
+        const rMin = 0.15;
+
+        // Compute curves
+        const N = 400;
+        const yukawaPts = [], coulombPts = [], netPts = [];
+        let Vmin = 0, Vmax = 0;
+        for (let i = 0; i <= N; i++) {
+            const r = rMin + (rMax - rMin) * i / N;
+            const Vy = -g2 * Math.exp(-r / lambda) / r;
+            const Vc = e2 / r;
+            const Vnet = Vy + Vc;
+            yukawaPts.push({ r, V: Vy });
+            coulombPts.push({ r, V: Vc });
+            netPts.push({ r, V: Vnet });
+            Vmin = Math.min(Vmin, Vy, Vnet);
+            Vmax = Math.max(Vmax, Vc, 0);
+        }
+        // Add some padding
+        const Vrange = Vmax - Vmin;
+        Vmin -= Vrange * 0.08;
+        Vmax += Vrange * 0.08;
+
+        const pw = W - pad.left - pad.right;
+        const ph = H - pad.top - pad.bottom;
+
+        // Grid
+        ctx.strokeStyle = 'rgba(240,160,48,0.06)';
+        ctx.lineWidth = 0.5;
+        // Vertical grid
+        for (let r = 0; r <= rMax; r += (rMax <= 5 ? 0.5 : 1)) {
+            const x = mapX(r, rMax);
+            ctx.beginPath(); ctx.moveTo(x, pad.top); ctx.lineTo(x, pad.top + ph); ctx.stroke();
+        }
+        // Horizontal grid
+        const vStep = Vrange > 100 ? 20 : Vrange > 30 ? 5 : 1;
+        for (let v = Math.ceil(Vmin / vStep) * vStep; v <= Vmax; v += vStep) {
+            const y = mapY(v, Vmin, Vmax);
+            ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(pad.left + pw, y); ctx.stroke();
+        }
+
+        // Zero line
+        if (Vmin < 0 && Vmax > 0) {
+            const y0 = mapY(0, Vmin, Vmax);
+            ctx.strokeStyle = 'rgba(232,226,216,0.15)';
+            ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(pad.left, y0); ctx.lineTo(pad.left + pw, y0); ctx.stroke();
+        }
+
+        // Range marker (λ)
+        const lx = mapX(lambda, rMax);
+        ctx.setLineDash([5, 5]);
+        ctx.strokeStyle = 'rgba(240,160,48,0.35)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(lx, pad.top); ctx.lineTo(lx, pad.top + ph); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = 'rgba(240,160,48,0.6)';
+        ctx.font = '11px IBM Plex Mono';
+        ctx.textAlign = 'center';
+        ctx.fillText('λ = ' + lambda.toFixed(2) + ' fm', lx, pad.top - 6);
+
+        // Draw curves
+        function drawCurve(pts, color, width, show) {
+            if (!show) return;
+            ctx.strokeStyle = color;
+            ctx.lineWidth = width;
+            ctx.lineJoin = 'round';
+            ctx.beginPath();
+            pts.forEach((p, i) => {
+                const x = mapX(p.r, rMax);
+                const y = mapY(p.V, Vmin, Vmax);
+                i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+            });
+            ctx.stroke();
+        }
+
+        drawCurve(coulombPts, '#ff4060', 2, document.getElementById('show-coulomb').checked);
+        drawCurve(yukawaPts, '#f0a030', 2.5, document.getElementById('show-yukawa').checked);
+        drawCurve(netPts, '#20c0a0', 2, document.getElementById('show-net').checked);
+
+        // Hover line
+        if (hoverR > rMin && hoverR < rMax) {
+            const hx = mapX(hoverR, rMax);
+            ctx.strokeStyle = 'rgba(232,226,216,0.25)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([3, 3]);
+            ctx.beginPath(); ctx.moveTo(hx, pad.top); ctx.lineTo(hx, pad.top + ph); ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Dots on curves
+            const Vy = -g2 * Math.exp(-hoverR / lambda) / hoverR;
+            const Vc = e2 / hoverR;
+            const Vnet = Vy + Vc;
+
+            function dot(V, col) {
+                const y = mapY(V, Vmin, Vmax);
+                ctx.fillStyle = col;
+                ctx.beginPath(); ctx.arc(hx, y, 4, 0, PI2); ctx.fill();
+            }
+            if (document.getElementById('show-coulomb').checked) dot(Vc, '#ff4060');
+            if (document.getElementById('show-yukawa').checked) dot(Vy, '#f0a030');
+            if (document.getElementById('show-net').checked) dot(Vnet, '#20c0a0');
+
+            document.getElementById('hover-info').innerHTML =
+                `r = ${hoverR.toFixed(2)} fm<br>` +
+                `<span style="color:#f0a030">V<sub>Y</sub> = ${Vy.toFixed(2)}</span>  ` +
+                `<span style="color:#ff4060">V<sub>C</sub> = ${Vc.toFixed(2)}</span><br>` +
+                `<span style="color:#20c0a0">V<sub>net</sub> = ${Vnet.toFixed(2)} MeV</span>`;
+        }
+
+        // Axes
+        ctx.strokeStyle = 'rgba(232,226,216,0.3)';
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(pad.left, pad.top); ctx.lineTo(pad.left, pad.top + ph); ctx.lineTo(pad.left + pw, pad.top + ph); ctx.stroke();
+
+        // Axis labels
+        ctx.fillStyle = '#7a8294';
+        ctx.font = '11px IBM Plex Mono';
+        ctx.textAlign = 'center';
+        ctx.fillText('r (fm)', pad.left + pw / 2, H - 8);
+        // Tick labels
+        for (let r = 0; r <= rMax; r += (rMax <= 5 ? 0.5 : 1)) {
+            const x = mapX(r, rMax);
+            ctx.fillText(r.toFixed(rMax <= 5 ? 1 : 0), x, pad.top + ph + 16);
+        }
+        ctx.textAlign = 'right';
+        ctx.save();
+        ctx.translate(14, pad.top + ph / 2);
+        ctx.rotate(-Math.PI / 2);
+        ctx.fillText('V (MeV)', 0, 0);
+        ctx.restore();
+
+        // Legend (top-right inside plot)
+        const lx2 = pad.left + pw - 10;
+        let ly = pad.top + 10;
+        ctx.textAlign = 'right';
+        ctx.font = '11px Outfit';
+        if (document.getElementById('show-yukawa').checked) { ctx.fillStyle = '#f0a030'; ctx.fillText('● Yukawa (nuclear)', lx2, ly); ly += 18; }
+        if (document.getElementById('show-coulomb').checked) { ctx.fillStyle = '#ff4060'; ctx.fillText('● Coulomb (EM)', lx2, ly); ly += 18; }
+        if (document.getElementById('show-net').checked) { ctx.fillStyle = '#20c0a0'; ctx.fillText('● Net potential', lx2, ly); }
+
+        // Update readouts
+        document.getElementById('range-val').textContent = lambda.toFixed(3) + ' fm';
+    }
+
+    // Slider events
+    document.getElementById('mass-slider').addEventListener('input', e => {
+        mesonMass = +e.target.value;
+        document.getElementById('mass-val').textContent = mesonMass + ' MeV';
+        draw();
+    });
+    document.getElementById('coup-slider').addEventListener('input', e => {
+        g2 = +e.target.value / 100;
+        document.getElementById('coup-val').textContent = g2.toFixed(2);
+        draw();
+    });
+    ['show-yukawa', 'show-coulomb', 'show-net'].forEach(id => {
+        document.getElementById(id).addEventListener('change', draw);
+    });
+
+    // Hover
+    canvas.addEventListener('mousemove', e => {
+        const rect = canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const rMax = Math.max(getLambda() * 6, 4);
+        hoverR = 0.15 + ((mx - pad.left) / (W - pad.left - pad.right)) * (rMax - 0.15);
+        draw();
+    });
+    canvas.addEventListener('mouseleave', () => { hoverR = -1; draw(); document.getElementById('hover-info').innerHTML = 'Hover over the plot to inspect values'; });
+
+    window.addEventListener('resize', () => { init(); draw(); });
+    init();
+    draw();
+})();
+
+/* ================================================================
+   3. NUCLEAR BINDING SIMULATION
+   ================================================================ */
+(function() {
+    const canvas = document.getElementById('bindingCanvas');
+    let W, H, ctx;
+    const NUC_R = 14;
+    const LAMBDA = 50; // pixel range
+    const G2 = 3000; // Yukawa coupling
+    const HARD_CORE = 10; // repulsive core radius
+    const HARD_K = 80000; // core repulsion strength
+    const COULOMB_K = 500; // proton-proton Coulomb
+    const DAMPING = 0.993;
+    const DT = 0.016;
+
+    let nucleons = [];
+    let addMode = 'proton';
+    let coulombOn = true;
+
+    function makeNucleon(x, y, type) {
+        return { x, y, vx: rand(-30, 30), vy: rand(-30, 30), type };
+    }
+
+    function init() {
+        const s = fitCanvas(canvas);
+        W = s.w; H = s.h; ctx = s.ctx;
+        nucleons = [];
+        // Create a small nucleus: 3 protons + 4 neutrons
+        const cx = W / 2, cy = H / 2;
+        for (let i = 0; i < 3; i++) nucleons.push(makeNucleon(cx + rand(-40, 40), cy + rand(-40, 40), 'proton'));
+        for (let i = 0; i < 4; i++) nucleons.push(makeNucleon(cx + rand(-40, 40), cy + rand(-40, 40), 'neutron'));
+    }
+
+    function computeForces() {
+        const n = nucleons.length;
+        // Reset accelerations
+        nucleons.forEach(p => { p.ax = 0; p.ay = 0; });
+
+        for (let i = 0; i < n; i++) {
+            for (let j = i + 1; j < n; j++) {
+                const a = nucleons[i], b = nucleons[j];
+                const dx = b.x - a.x, dy = b.y - a.y;
+                const r = Math.max(1, Math.hypot(dx, dy));
+                const ux = dx / r, uy = dy / r;
+
+                // Yukawa attraction
+                const fYuk = -G2 * Math.exp(-r / LAMBDA) * (1 / (r * r) + 1 / (r * LAMBDA));
+                let fx = fYuk * ux, fy = fYuk * uy;
+
+                // Hard-core repulsion
+                const fCore = HARD_K * Math.exp(-r / HARD_CORE) / r;
+                fx += fCore * ux;
+                fy += fCore * uy;
+
+                // Coulomb repulsion (proton-proton only)
+                if (coulombOn && a.type === 'proton' && b.type === 'proton') {
+                    const fC = COULOMB_K / (r * r);
+                    fx += fC * ux;
+                    fy += fC * uy;
+                }
+
+                a.ax += fx; a.ay += fy;
+                b.ax -= fx; b.ay -= fy;
+            }
+        }
+
+        // Soft wall
+        const wallK = 50;
+        const margin = 30;
+        nucleons.forEach(p => {
+            if (p.x < margin) p.ax += wallK * (margin - p.x) / margin;
+            if (p.x > W - margin) p.ax -= wallK * (p.x - (W - margin)) / margin;
+            if (p.y < margin) p.ay += wallK * (margin - p.y) / margin;
+            if (p.y > H - margin) p.ay -= wallK * (p.y - (H - margin)) / margin;
+        });
+    }
+
+    function step() {
+        computeForces();
+        nucleons.forEach(p => {
+            p.vx += p.ax * DT;
+            p.vy += p.ay * DT;
+            p.vx *= DAMPING;
+            p.vy *= DAMPING;
+            p.x += p.vx * DT;
+            p.y += p.vy * DT;
+            p.x = clamp(p.x, 5, W - 5);
+            p.y = clamp(p.y, 5, H - 5);
+        });
+    }
+
+    function drawSim() {
+        ctx.clearRect(0, 0, W, H);
+
+        // Draw force connections
+        const n = nucleons.length;
+        for (let i = 0; i < n; i++) {
+            for (let j = i + 1; j < n; j++) {
+                const a = nucleons[i], b = nucleons[j];
+                const r = Math.hypot(b.x - a.x, b.y - a.y);
+                if (r < LAMBDA * 2.5) {
+                    const alpha = Math.max(0, 0.15 * Math.exp(-r / LAMBDA));
+                    const isRepulsive = (a.type === 'proton' && b.type === 'proton' && coulombOn && r < LAMBDA * 0.3);
+                    ctx.strokeStyle = isRepulsive ? `rgba(255,64,96,${alpha * 2})` : `rgba(48,216,144,${alpha})`;
+                    ctx.lineWidth = 1;
+                    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+                }
+            }
+        }
+
+        // Draw nucleons
+        nucleons.forEach(p => {
+            const col = p.type === 'proton' ? '#f0a030' : '#20c0a0';
+            // Glow
+            const g = ctx.createRadialGradient(p.x, p.y, NUC_R * 0.2, p.x, p.y, NUC_R * 2.5);
+            g.addColorStop(0, col + '25');
+            g.addColorStop(1, col + '00');
+            ctx.fillStyle = g;
+            ctx.beginPath(); ctx.arc(p.x, p.y, NUC_R * 2.5, 0, PI2); ctx.fill();
+            // Body
+            const bg = ctx.createRadialGradient(p.x - 3, p.y - 3, 1, p.x, p.y, NUC_R);
+            bg.addColorStop(0, col);
+            bg.addColorStop(1, col + '99');
+            ctx.fillStyle = bg;
+            ctx.beginPath(); ctx.arc(p.x, p.y, NUC_R, 0, PI2); ctx.fill();
+            ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.stroke();
+            // Label
+            ctx.fillStyle = '#080c14';
+            ctx.font = 'bold 11px Outfit';
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(p.type === 'proton' ? 'p' : 'n', p.x, p.y);
+        });
+
+        // Update readouts
+        const protons = nucleons.filter(p => p.type === 'proton').length;
+        const neutrons = nucleons.filter(p => p.type === 'neutron').length;
+        document.getElementById('prot-count').textContent = protons;
+        document.getElementById('neut-count').textContent = neutrons;
+
+        // Compute total energy
+        let KE = 0, PE = 0;
+        nucleons.forEach(p => { KE += 0.5 * (p.vx * p.vx + p.vy * p.vy); });
+        for (let i = 0; i < n; i++) {
+            for (let j = i + 1; j < n; j++) {
+                const r = Math.max(1, Math.hypot(nucleons[j].x - nucleons[i].x, nucleons[j].y - nucleons[i].y));
+                PE -= G2 * Math.exp(-r / LAMBDA) / r;
+                PE += HARD_K * HARD_CORE * Math.exp(-r / HARD_CORE) / r;
+                if (coulombOn && nucleons[i].type === 'proton' && nucleons[j].type === 'proton') PE += COULOMB_K / r;
+            }
+        }
+        document.getElementById('total-energy').textContent = (KE + PE).toFixed(0);
+        document.getElementById('bound-status').textContent = (KE + PE) < 0 ? 'YES' : 'NO';
+        document.getElementById('bound-status').style.color = (KE + PE) < 0 ? 'var(--attractive)' : 'var(--repulsive)';
+    }
+
+    function animate() {
+        step();
+        drawSim();
+        requestAnimationFrame(animate);
+    }
+
+    // Click to add nucleon
+    canvas.addEventListener('click', e => {
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        if (nucleons.length < 30) {
+            nucleons.push(makeNucleon(x, y, addMode));
+        }
+    });
+
+    // Buttons
+    document.getElementById('addProtonBtn').addEventListener('click', () => {
+        addMode = 'proton';
+        document.getElementById('addProtonBtn').classList.add('active');
+        document.getElementById('addNeutronBtn').classList.remove('active');
+    });
+    document.getElementById('addNeutronBtn').addEventListener('click', () => {
+        addMode = 'neutron';
+        document.getElementById('addNeutronBtn').classList.add('active');
+        document.getElementById('addProtonBtn').classList.remove('active');
+    });
+    document.getElementById('resetBindingBtn').addEventListener('click', init);
+    document.getElementById('toggleCoulombBtn').addEventListener('click', function() {
+        coulombOn = !coulombOn;
+        this.innerHTML = `<i class="fa-solid fa-bolt mr-1"></i> Coulomb: ${coulombOn ? 'ON' : 'OFF'}`;
+        this.classList.toggle('active', coulombOn);
+    });
+
+    window.addEventListener('resize', () => {
+        const oldW = W, oldH = H;
+        init();
+        // Rescale positions
+        nucleons.forEach(p => { p.x *= W / oldW; p.y *= H / oldH; });
+    });
+    init();
+    requestAnimationFrame(animate);
+})();
+</script>
+</body>
+</html>
